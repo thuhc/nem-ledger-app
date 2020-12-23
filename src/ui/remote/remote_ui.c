@@ -19,8 +19,8 @@
 #include <os_io_seproxyhal.h>
 #include <ux.h>
 #include "limitations.h"
-#include "ui/main/idle_menu.h"
-#include "nem/nem_helpers.h"
+#include "idle_menu.h"
+#include "nem_helpers.h"
 #include "glyphs.h"
 
 extern char fieldValue[MAX_FIELD_LEN];

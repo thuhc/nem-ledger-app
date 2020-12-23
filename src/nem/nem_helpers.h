@@ -52,6 +52,7 @@ uint8_t get_network_type(const uint32_t bip32Path[]);
 uint8_t get_algo(uint8_t network_type);
 #ifndef FUZZ
 void nem_public_key_and_address(cx_ecfp_public_key_t *inPublicKey, uint8_t inNetworkId, unsigned int inAlgo, uint8_t *outPublicKey, char *outAddress, uint8_t outLen);
+void nem_get_remote_private_key(const char *privateKey, unsigned int priKeyLen, const char* key, unsigned int keyLen, const char* value, unsigned int valueLen, uint8_t encrypt, uint8_t askOnEncrypt, uint8_t askOnDecrypt, uint8_t *out, unsigned int outLen);
 #endif
 
 #endif //LEDGER_APP_NEM_NEMHELPERS_H

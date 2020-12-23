@@ -78,3 +78,43 @@ void nem_public_key_and_address(cx_ecfp_public_key_t *inPublicKey, uint8_t inNet
     memcpy(rawAddress + 21, buffer1, 4);
     base32_encode((const uint8_t *) rawAddress, 25, (char *) outAddress, outLen);
 }
+
+void nem_get_remote_private_key(const char *privateKey, unsigned int priKeyLen, const char* key, unsigned int keyLen, const char* value, unsigned int valueLen, uint8_t encrypt, uint8_t askOnEncrypt, uint8_t askOnDecrypt, uint8_t *out, unsigned int outLen)
+{
+    int result;
+    uint8_t data[260];
+    memset(data, 0, sizeof(data));
+    strncpy((char *)data, key, keyLen);
+    strncat((char *)data, askOnEncrypt ? "E1" : "E0", 2);
+    strncat((char *)data, askOnDecrypt ? "D1" : "D0", 2);
+    PRINTF("Result before data: %s\n", (char *) data);
+    result = cx_hmac_sha512(privateKey, priKeyLen, data, strlen((char *)data), data, sizeof(data));
+    PRINTF("Result after cx_hmac_sha512: %d\n", result);
+    PRINTF("Result after cx_hmac_sha512: %s\n", data);
+    cx_aes_key_t aes_key;
+    result = cx_aes_init_key(data, 32, &aes_key);
+    PRINTF("Result after cx_aes_init_key: %d\n", result);
+    BEGIN_TRY {
+        TRY {
+            if (encrypt) {
+                PRINTF("Before cx_aes: CX_ENCRYPT\n");
+                result = cx_aes_iv(&aes_key, CX_LAST | CX_ENCRYPT | CX_CHAIN_CBC | CX_PAD_NONE , data+32, 16, value, valueLen, out, outLen);
+                //result = cx_aes(&aes_key, CX_LAST | CX_ENCRYPT | CX_CHAIN_CBC | CX_PAD_NONE , data+32, 16, out, outLen);
+            } else {
+                PRINTF("Before cx_aes: CX_DECRYPT\n");
+                result = cx_aes_iv(&aes_key, CX_LAST | CX_DECRYPT | CX_CHAIN_CBC | CX_PAD_NONE, data+32, 16, value, valueLen, out, outLen);
+                //result = cx_aes(&aes_key, CX_LAST | CX_DECRYPT | CX_CHAIN_CBC | CX_PAD_NONE, data+32, 16, out, outLen);
+            }
+            PRINTF("Result after cx_aes: %d\n", result);
+        }
+        CATCH_OTHER(e) {
+            PRINTF("Exception: %d\n", e);
+            //THROW(e);
+
+        }
+        FINALLY {
+        }
+    }
+    END_TRY;
+    PRINTF("Result after cx_aes_iv: %s\n", out);
+}

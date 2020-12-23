@@ -16,14 +16,12 @@
 *  limitations under the License.
 ********************************************************************************/
 #include "get_remote_account.h"
-#include "apdu/global.h"
-#include "nem/nem_helpers.h"
-#include "ui/main/idle_menu.h"
-#include "ui/remote/remote_ui.h"
+#include "global.h"
+#include "nem_helpers.h"
+#include "idle_menu.h"
+#include "remote_ui.h"
 
 uint8_t nem_remote_private_key[NEM_PRIVATE_KEY_LENGTH];
-char key[32] = "Export delegated harvesting key?";
-char value[64] = "0000000000000000000000000000000000000000000000000000000000000000";
 
 uint32_t set_result_get_delegated_harvesting_key() {
     uint32_t tx = 0;
@@ -64,30 +62,42 @@ void handle_remote_private_key(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
     uint8_t bip32PathLength = *(dataBuffer++);
     cx_ecfp_private_key_t privateKey;
     uint8_t algo;
+    uint8_t encrypt = 0;
+    uint8_t askOnEncrypt = 0;
+    uint8_t askOnDecrypt = 0;
     uint8_t p2Chain = p2 & 0x3F;
+    char key[32] = "Export delegated harvesting key?";
+    char value[64] = "0000000000000000000000000000000000000000000000000000000000000000";
     UNUSED(p2Chain);
-
+    PRINTF("handle_remote_private_key 1\n");
     if ((bip32PathLength < 1) || (bip32PathLength > MAX_BIP32_PATH)) {
         THROW(0x6a80);
     }
+    PRINTF("handle_remote_private_key 2\n");
     if ((p1 != P1_CONFIRM) && (p1 != P1_NON_CONFIRM)) {
         THROW(0x6B00);
     }
-
+    PRINTF("handle_remote_private_key 3\n");
     //Read and convert path's data
     for (i = 0; i < bip32PathLength; i++) {
         bip32Path[i] = (dataBuffer[0] << 24) | (dataBuffer[1] << 16) |
                        (dataBuffer[2] << 8) | (dataBuffer[3]);
         dataBuffer += 4;
     }
+    PRINTF("handle_remote_private_key 4\n");
     uint8_t network_type = get_network_type(bip32Path);
+    PRINTF("handle_remote_private_key 5\n");
     algo = get_algo(network_type);
+    PRINTF("handle_remote_private_key 6\n");
     io_seproxyhal_io_heartbeat();
     BEGIN_TRY {
         TRY {
+            PRINTF("handle_remote_private_key 7\n");
             os_perso_derive_node_bip32(CX_CURVE_256K1, bip32Path, bip32PathLength, privateKeyData, NULL);
+            PRINTF("handle_remote_private_key 8\n");
             if (algo == CX_SHA3) {
                 cx_ecfp_init_private_key(CX_CURVE_Ed25519, privateKeyData, NEM_PRIVATE_KEY_LENGTH, &privateKey);
+                PRINTF("handle_remote_private_key 9\n");
             } else if (algo == CX_KECCAK) {
                 //reverse privateKey
                 uint8_t privateKeyDataR[NEM_PRIVATE_KEY_LENGTH];
@@ -95,17 +105,19 @@ void handle_remote_private_key(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
                     privateKeyDataR[j] = privateKeyData[NEM_PRIVATE_KEY_LENGTH - 1 - j];
                 }
                 cx_ecfp_init_private_key(CX_CURVE_Ed25519, privateKeyDataR, NEM_PRIVATE_KEY_LENGTH, &privateKey);
+                PRINTF("handle_remote_private_key 10\n");
                 explicit_bzero(privateKeyDataR, sizeof(privateKeyDataR));
             } else {
                 THROW(0x6a80);
             }
-            explicit_bzero(privateKeyData, sizeof(privateKeyData));
+            PRINTF("handle_remote_private_key 11\n");
             io_seproxyhal_io_heartbeat();
-            int result;
-            result = cx_hmac_sha512(&key, strlen(key), &value, strlen(value), &nem_remote_private_key, 32);
-            PRINTF("Result after hmac_sha512: %d\n", result);
+            nem_get_remote_private_key(privateKey.d, 32, key, strlen(key), value, strlen(value), encrypt, askOnEncrypt, askOnDecrypt, nem_remote_private_key, 32);
+            PRINTF("handle_remote_private_key 12\n");
+            explicit_bzero(privateKeyData, sizeof(privateKeyData));
             explicit_bzero(&privateKey, sizeof(privateKey));
             io_seproxyhal_io_heartbeat();
+            PRINTF("handle_remote_private_key 13\n");
         }
         CATCH_OTHER(e) {
             THROW(e);
@@ -115,8 +127,8 @@ void handle_remote_private_key(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
             explicit_bzero(&privateKey, sizeof(privateKey));
         }
     }
-    END_TRY
-
+    END_TRY;
+    PRINTF("handle_remote_private_key P1_NON_CONFIRM\n");
     if (p1 == P1_NON_CONFIRM) {
         *tx = set_result_get_delegated_harvesting_key();
         THROW(0x9000);
@@ -127,4 +139,5 @@ void handle_remote_private_key(uint8_t p1, uint8_t p2, uint8_t *dataBuffer,
         );
         *flags |= IO_ASYNCH_REPLY;
     }
+    PRINTF("handle_remote_private_key END\n");
 }
